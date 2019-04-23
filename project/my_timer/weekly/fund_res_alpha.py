@@ -8,7 +8,10 @@ from quant.fund.fund import Fund
 from quant.stock.date import Date
 from quant.stock.index import Index
 from quant.stock.barra import Barra
+from quant.stock.stock import Stock
+from quant.mfc.mfc_data import MfcData
 from quant.utility.write_excel import WriteExcel
+from quant.utility.code_format import CodeFormat
 from quant.project.multi_factor.alpha_model.sample.alpha_split import AlphaSplit
 from quant.project.multi_factor.alpha_model.exposure.alpha_factor_update import AlphaFactorUpdate
 
@@ -44,11 +47,11 @@ class ResAlphaExposure(Data):
 
         file = os.path.join(self.data_path, "res_alpha.xlsx")
         data = pd.read_excel(file)
-        data = data.dropna(subset=['因子名'])
-        data.index = data['因子名']
+        data = data.dropna(subset=['mFactorName'])
+        data.index = data['mFactorName'].map(lambda x: str(x) + '_res')
         return data
 
-    def res_alpha_exposure(self, fund_pool, report_date, index_code):
+    def res_alpha_exposure(self, fund_pool, report_date, index_code, type="halfyear"):
 
         """ 生成基金持仓及指数 在残差Alpha上的暴露 """
 
@@ -66,16 +69,31 @@ class ResAlphaExposure(Data):
 
             alpha_name_en = alpha_list.index[i_alpha]
             alpha_name_ch = alpha_list.loc[alpha_name_en, "名称"]
-            alpha_data = AlphaSplit().get_alpha_res_exposure(alpha_name_en, "AllChinaStockFilter")
+            alpha_data = Stock().read_factor_h5(alpha_name_en, path=os.path.join(self.data_path, "MatlabAlphaRes"))
+            try:
+                trade_date = alpha_data.columns[alpha_data.columns <= trade_date][-1]
+            except Exception as e:
+                print(e)
+                trade_date = alpha_data.columns[0]
 
             for i_fund in range(0, len(fund_info)):
 
                 fund_code = fund_info.index[i_fund]
                 fund_name = fund_info.loc[fund_code, "基金名称"]
-                holder = fund_holder[fund_holder.FundCode == fund_code]
-                holder = holder.reset_index(drop=True)
-                holder.index = holder.StockCode
-                weight = pd.DataFrame(holder.Weight)
+
+                if type == "halfyear":
+                    holder = fund_holder[fund_holder.FundCode == fund_code]
+                    holder = holder.reset_index(drop=True)
+                    holder.index = holder.StockCode
+                    weight = pd.DataFrame(holder.Weight)
+                else:
+                    weight = MfcData().get_fund_security(report_date)
+                    weight = weight[weight['基金名称'] == fund_name]
+                    weight.index = weight['证券代码']
+                    weight = pd.DataFrame(weight['市值比净值(%)'])
+                    weight.index = weight.index.map(CodeFormat().stock_code_add_postfix)
+                    weight.columns = ['Weight']
+                    weight['Weight'] /= weight['Weight'].sum()
 
                 if (len(weight) > 0) and (trade_date in alpha_data.columns):
                     weight = weight.sort_values(by=['Weight'], ascending=False)
@@ -109,10 +127,11 @@ class ResAlphaExposure(Data):
                     result.loc[index_code, alpha_name_ch] = weight_alpha
 
         result = result.dropna(how="all")
+        result_abs = result
         result = result.sub(result.loc[index_code, :])
-        return result
+        return result, result_abs
 
-    def barra_exposure(self, fund_pool, report_date, index_code):
+    def barra_exposure(self, fund_pool, report_date, index_code, type="halfyear"):
 
         """ 生成基金持仓及指数 在Barra上的暴露 """
 
@@ -133,10 +152,19 @@ class ResAlphaExposure(Data):
 
                 fund_code = fund_info.index[i_fund]
                 fund_name = fund_info.loc[fund_code, "基金名称"]
-                holder = fund_holder[fund_holder.FundCode == fund_code]
-                holder = holder.reset_index(drop=True)
-                holder.index = holder.StockCode
-                weight = pd.DataFrame(holder.Weight)
+                if type == "halfyear":
+                    holder = fund_holder[fund_holder.FundCode == fund_code]
+                    holder = holder.reset_index(drop=True)
+                    holder.index = holder.StockCode
+                    weight = pd.DataFrame(holder.Weight)
+                else:
+                    weight = MfcData().get_fund_security(report_date)
+                    weight = weight[weight['基金名称'] == fund_name]
+                    weight.index = weight['证券代码']
+                    weight = pd.DataFrame(weight['市值比净值(%)'])
+                    weight.index = weight.index.map(CodeFormat().stock_code_add_postfix)
+                    weight.columns = ['Weight']
+                    weight['Weight'] /= weight['Weight'].sum()
 
                 if (len(weight) > 0) and (barra_name in barra_data.columns):
                     weight = weight.sort_values(by=['Weight'], ascending=False)
@@ -169,25 +197,34 @@ class ResAlphaExposure(Data):
                     result.loc[index_code, barra_name] = weight_alpha
 
         result = result.dropna(how="all")
+        result_abs = result
         result = result.sub(result.loc[index_code, :])
-        return result
+        return result, result_abs
 
-    def generate_file(self, fund_pool, report_date, index_code):
+    def generate_file(self, fund_pool, report_date, index_code, type="halfyear"):
 
         """ 生成暴露的文件 """
 
         fund_info = self.get_fund_file(fund_pool)
-        result = self.res_alpha_exposure(fund_pool, report_date, index_code)
+        result, result_abs = self.res_alpha_exposure(fund_pool, report_date, index_code, type)
         result = result.drop(index_code)
-        barra = self.barra_exposure(fund_pool, report_date, index_code)
+        barra, barra_abs = self.barra_exposure(fund_pool, report_date, index_code, type)
+
+        industry_abs = barra_abs.loc[:, list(Barra().get_factor_name(type_list=['INDUSTRY']).NAME_EN)]
+        industry_abs['IndustryBias'] = industry_abs.abs().sum(axis=1)
+        style_abs = barra_abs.loc[:, list(Barra().get_factor_name(type_list=['STYLE']).NAME_EN)]
+
         industry = barra.loc[:, list(Barra().get_factor_name(type_list=['INDUSTRY']).NAME_EN)]
         industry['IndustryBias'] = industry.abs().sum(axis=1)
         style = barra.loc[:, list(Barra().get_factor_name(type_list=['STYLE']).NAME_EN)]
 
         res = pd.concat([fund_info[['基金名称', '类型', '成立日期']],
                          style, industry['IndustryBias'], result, industry], axis=1)
-        # res = pd.concat([fund_info[['基金名称', '类型', '成立日期']], result], axis=1)
         res = res.loc[result.index, :]
+
+        res_abs = pd.concat([fund_info[['基金名称', '类型', '成立日期']],
+                             style_abs, industry_abs['IndustryBias'], result_abs, industry_abs], axis=1)
+        res_abs = res_abs.loc[result_abs.index, :]
 
         num_format_pd = pd.DataFrame([], columns=res.columns, index=['format'])
         num_format_pd.ix['format', :] = '0.00'
@@ -201,41 +238,29 @@ class ResAlphaExposure(Data):
         excel.conditional_format(worksheet, 1, 0 + 5, 1 + len(res), len(res.columns) + 5, None)
 
         excel.close()
-        return res
 
-    def fund_alpha_exposure_all(self, beg_date, end_date, fund_pool, index_code):
+        num_format_pd = pd.DataFrame([], columns=res_abs.columns, index=['format'])
+        num_format_pd.ix['format', :] = '0.00'
+
+        sheet_name = fund_pool
+        file = os.path.join(self.data_path, "风险及残差Alpha绝对暴露_%s_%s.xlsx" % (fund_pool, report_date))
+        excel = WriteExcel(file)
+        worksheet = excel.add_worksheet(sheet_name)
+        excel.write_pandas(res_abs, worksheet, begin_row_number=0, begin_col_number=1,
+                           num_format_pd=num_format_pd, color="orange", fillna=True)
+        excel.conditional_format(worksheet, 1, 0 + 5, 1 + len(res), len(res.columns) + 5, None)
+
+        excel.close()
+
+    def fund_alpha_exposure_all(self, beg_date, end_date, fund_pool, index_code, period="S", type="halfyear"):
 
         """ 所有时期 """
 
-        date_series = Date().get_normal_date_series(beg_date, end_date, "S")
+        date_series = Date().get_normal_date_series(beg_date, end_date, period)
         print(date_series)
 
-        result = pd.Panel()
         for report_date in date_series:
-            res = self.generate_file(fund_pool, report_date, index_code)
-        #     result = pd.concat([result, res], axis=0)
-        #
-        # result = result.drop(labels=['基金名称', '类型', '成立日期'], axis=2)
-        # result_mean = result.mean(axis=2)
-        # result_std = result.std(axis=2)
-        # result_t = result_mean / result_std * (np.sqrt(len(date_series) - 1))
-        #
-        # fund_info = self.get_fund_file(fund_pool)
-        #
-        # result_t = pd.concat([fund_info[['基金名称', '类型', '成立日期']], result_t], axis=1)
-        # result_t = result_t.loc[result_t.index, :]
-        #
-        # # write pandas
-        # num_format_pd = pd.DataFrame([], columns=result_t.columns, index=['format'])
-        # num_format_pd.ix['format', :] = '0.00'
-        #
-        # sheet_name = fund_pool
-        # file = os.path.join(self.data_path, "风险及残差Alpha暴露_%s_%s.xlsx" % (fund_pool, "T检验"))
-        # excel = WriteExcel(file)
-        # worksheet = excel.add_worksheet(sheet_name)
-        # excel.write_pandas(result_t, worksheet, begin_row_number=0, begin_col_number=1,
-        #                    num_format_pd=num_format_pd, color="red", fillna=True)
-        # excel.close()
+            self.generate_file(fund_pool, report_date, index_code, type)
 
 
 if __name__ == '__main__':
@@ -244,13 +269,16 @@ if __name__ == '__main__':
 
     today = datetime.today().strftime("%Y%m%d")
     end_date = Date().get_trade_date_offset(today, -1)
-    beg_date = Date().get_trade_date_offset(today, -300)
+    beg_date = Date().get_trade_date_offset(today, -220)
     report_date = "20181231"
     index_code = "000300.SH"
-    fund_pool = "沪深300"
+    fund_pool = "部门沪深300"
+    report_date = "20190417"
 
     self = ResAlphaExposure()
     # self.update_data(beg_date, end_date)
-    self.fund_alpha_exposure_all("20170101", "20190401", "中证500", "000905.SH")
-    self.fund_alpha_exposure_all("20170101", "20190401", "沪深300", "000300.SH")
-
+    # self.fund_alpha_exposure_all("20170701", "20190401", "中证500", "000905.SH")
+    # self.fund_alpha_exposure_all("20170701", "20190401", "沪深300", "000300.SH")
+    # self.fund_alpha_exposure_all("20170701", "20190401", "主动股票基金", "基金持仓基准基金池_等权季报满仓_季报日")
+    self.generate_file(fund_pool="部门中证500", report_date="20190418", index_code="000905.SH", type="mfcteda")
+    self.generate_file(fund_pool="部门沪深300", report_date="20190418", index_code="000300.SH", type="mfcteda")

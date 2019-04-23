@@ -330,7 +330,7 @@ class HoldingDaily(Data):
         print(" Mailing For ", person_name)
         sender_mail_name = 'fucheng.dou@mfcteda.com'
 
-        receivers_mail_name = [mail_add, 'fucheng.dou@mfcteda.com']
+        receivers_mail_name = [mail_add, 'fucheng.dou@mfcteda.com', 'bin.li@mfcteda.com']
         if test:
             receivers_mail_name = ['fucheng.dou@mfcteda.com']
         out_sub_path = os.path.join(self.data_path, person_name, self.today)

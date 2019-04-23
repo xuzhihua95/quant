@@ -1,7 +1,15 @@
 import os
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
+from datetime import datetime
 from quant.data.data import Data
 from quant.stock.index import Index
+from quant.stock.stock import Stock
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
 
 
 class TimingFactor(Data):
@@ -16,6 +24,60 @@ class TimingFactor(Data):
         self.sub_data_path = r"index_data\timing"
         self.data_path = os.path.join(self.primary_data_path, self.sub_data_path)
 
+    def cal_factor_from_stock(self, factor_name, path, index_code, tf_name):
+
+        """ 利用股票的数据计算择时指标 """
+
+        stock_factor = Stock().read_factor_h5(factor_name, path)
+        weight = Index().get_weight(index_code)
+        [stock_factor, weight] = Stock().make_same_index_columns([stock_factor, weight])
+
+        mul_factor = stock_factor.mul(weight)
+        factor_series = mul_factor.sum() / weight.sum()
+        factor_series = pd.DataFrame(factor_series)
+        factor_series.columns = [tf_name]
+        factor_series = factor_series.dropna()
+
+        return factor_series
+
+    def factor_index_plot(self, factor_series, tf_name, index_code, index_name, offset=1):
+
+        """ 指标和指数画图 """
+
+        index_price = Index().get_index_factor(index_code, attr=['CLOSE'])
+        index_price.columns = [index_name]
+        factor_series = factor_series.shift(offset)
+        c_data = pd.concat([index_price, factor_series], axis=1)
+        c_data = c_data.dropna()
+        c_data.index = c_data.index.map(lambda x: datetime.strptime(x, "%Y%m%d"))
+
+        time_series = np.array(c_data.index)
+        index_values = np.array(c_data[index_name])
+        factor_values = np.array(c_data[tf_name])
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(time_series, index_values, '-', label=index_name, linewidth=0.75)
+        ax2 = ax.twinx()
+        ax2.plot(time_series, factor_values, '-r', label=tf_name, linewidth=0.75)
+
+        ax.set_xlabel("Date")
+        ax.set_ylabel(index_name)
+        ax2.set_ylabel(tf_name)
+
+        ax.set_ylim(min(index_values), max(index_values))
+        ax2.set_ylim(min(factor_values), max(factor_values))
+
+        file = os.path.join(self.data_path, 'factor_picture', tf_name + '_factor.jpg')
+        plt.savefig(file)
+
+    def save_factor_exposure(self, factor_name, factor_series):
+
+        """ 得到择时指标的数值 """
+
+        file = os.path.join(self.data_path, 'exposure', factor_name + '.csv')
+        factor_series.to_csv(file)
+
     def get_factor_exposure(self, factor_name):
 
         """ 得到择时指标的数值 """
@@ -25,7 +87,7 @@ class TimingFactor(Data):
         data.index = data.index.map(str)
         return data
 
-    def back_test_timing_factor(self, factor_name, index_code):
+    def back_test_timing_factor(self, factor_seires, factor_name, period="M"):
 
         """ 回测择时指标 """
 
@@ -123,9 +185,17 @@ class TimingFactor(Data):
 
 if __name__ == '__main__':
 
+    from quant.project.multi_factor.alpha_model.exposure.alpha_factor import AlphaFactor
     self = TimingFactor()
-    factor_name = "AverageDiff_000300.SH"
+    factor_name = "ROE"
     index_code = "000300.SH"
     date = "20190322"
+    offset = 1  # 指标滞后几天
+    index_name = "沪深300"
+    factor_name = "alpha_raw_roe"
+    path = AlphaFactor().exposure_hdf_path
+    index_code = "000300.SH"
+    tf_name = 'roe'
+
     self.back_test_timing_factor(factor_name, index_code)
     print(self.get_factor_exposure_date(factor_name, date))

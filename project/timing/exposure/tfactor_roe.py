@@ -16,7 +16,7 @@ class TFactorROE(TimingFactor):
     def __init__(self):
 
         TimingFactor.__init__(self)
-        self.factor_name = "AverageDiff"
+        self.factor_name = "ROE"
 
     @staticmethod
     def score_average_diff(x):
@@ -30,27 +30,17 @@ class TFactorROE(TimingFactor):
 
         return position
 
-    def cal_factor_exposure(self, beg_date, end_date, index_code):
+    def cal_factor_exposure(self, beg_date, end_date, index_code, index_name):
 
         """ 计算指标数值 """
 
-        short_term = 5
-        long_term = 90
+        term = 20
 
-        data = AlphaFactor().get_alpha_factor_exposure("alpha_raw_roe")
-        weight = Index().get_weight(index_code)
-
-        date_series = Date().get_trade_date_offset(beg_date, end_date)
-        date_series = set(date_series)
-
-        data = data.dropna()
-        data['DiffRatio'] = data['Diff'] / data['CLOSE']
-        data['RawTimer'] = data['DiffRatio']
-        data['Timer'] = data['RawTimer'].map(self.score_average_diff)
-
-        file = os.path.join(self.data_path, 'exposure', '%s_%s.csv' % (self.factor_name, index_code))
-        data = data.dropna(how="all")
-        data.to_csv(file)
+        path = AlphaFactor().exposure_hdf_path
+        factor_series = self.cal_factor_from_stock("alpha_raw_roe", path, index_code, self.factor_name)
+        factor_series = factor_series.rolling(window=term).mean()
+        factor_series = factor_series.loc[beg_date:end_date, :]
+        self.factor_index_plot(factor_series, self.factor_name, index_code, index_name, 1)
 
 
 if __name__ == "__main__":
@@ -58,5 +48,6 @@ if __name__ == "__main__":
     beg_date = "20050301"
     end_date = datetime.today().strftime("%Y%m%d")
     index_code = "000300.SH"
+    index_name = "沪深300"
     self = TFactorROE()
-    self.cal_factor_exposure(beg_date, end_date, index_code)
+    self.cal_factor_exposure(beg_date, end_date, index_code, index_name)

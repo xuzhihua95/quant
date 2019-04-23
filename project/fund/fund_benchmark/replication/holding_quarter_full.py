@@ -1,3 +1,7 @@
+import os
+import pandas as pd
+from datetime import datetime
+
 from quant.data.data import Data
 from quant.stock.date import Date
 from quant.stock.index import Index
@@ -7,10 +11,6 @@ from quant.fund.fund_holder import FundHolder
 from quant.fund.fund_factor import FundFactor
 from quant.source.backtest import BackTest
 from quant.source.wind_portfolio import WindPortUpLoad
-
-import os
-import pandas as pd
-from datetime import datetime
 
 
 class HoldingQuarter(Data):
@@ -23,7 +23,7 @@ class HoldingQuarter(Data):
 
         Data.__init__(self)
 
-        self.port_name = "普通股票型基金_等权季报满仓_披露日"
+        self.port_name = "基金持仓基准基金池_等权季报满仓_季报日"
         self.wind_port_path = WindPortUpLoad().path
         self.data_weight_path = Index().data_path_weight
         self.data_factor_path = Index().data_data_factor
@@ -34,12 +34,12 @@ class HoldingQuarter(Data):
 
         """ 单个季度公募主动股票基金平均权重 每个基金的权都为1 """
 
-        fund_pool = FundPool().get_fund_pool_code(name="普通股票型基金", date=quarter_date)
+        fund_pool = FundPool().get_fund_pool_code(name="基金持仓基准基金池", date="20181231")
 
         for i_fund in range(len(fund_pool)):
             fund = fund_pool[i_fund]
             try:
-                fund_holding = FundHolder().get_fund_holding_quarter(fund=fund)
+                fund_holding = FundHolder().get_fund_stock_weight_quarter(fund=fund)
                 fund_holding_date = pd.DataFrame(fund_holding[quarter_date])
                 fund_holding_date = fund_holding_date.dropna()
                 fund_holding_date *= 1.0
@@ -59,7 +59,7 @@ class HoldingQuarter(Data):
 
         """ 计算 所有季报日 公募主动股票基金 基金平均持仓 还要考虑股票仓位 并生成wind文件"""
 
-        date_series = Date().get_normal_date_series("20040101", datetime.today(), "Q")
+        date_series = Date().get_normal_date_series("20060101", datetime.today(), "S")
 
         for i_date in range(len(date_series)):
 
@@ -69,7 +69,7 @@ class HoldingQuarter(Data):
             stock_data_weight /= stock_data_weight.sum()
             print(len(stock_data_weight))
 
-            publish_date = Date().get_trade_date_offset(quarter_date, 16)
+            publish_date = Date().get_trade_date_offset(quarter_date, 0)
             stock_data_weight.index.name = "Code"
             stock_data_weight["CreditTrading"] = "No"
             stock_data_weight["Date"] = publish_date
@@ -115,27 +115,14 @@ class HoldingQuarter(Data):
         data.to_csv(os.path.join(sub_path, self.port_name + '.csv'))
 
         # 写入每日权重
-        sub_path = os.path.join(self.data_weight_path, self.port_name)
-        if not os.path.exists(sub_path):
-            os.makedirs(sub_path)
-
-        for i_date in range(len(port_daily.columns)):
-
-            date = port_daily.columns[i_date]
-            weight_date = pd.DataFrame(port_daily[date])
-            weight_date = weight_date.dropna()
-            weight_date.columns = ['WEIGHT']
-            weight_date.index.name = 'CODE'
-            file = os.path.join(sub_path, '%s.csv' % date)
-            print(file)
-            weight_date.to_csv(file)
-
+        file = os.path.join(self.data_weight_path, '%s.csv' % self.port_name)
+        port_daily.to_csv(file)
 
 if __name__ == '__main__':
 
     self = HoldingQuarter()
 
-    self.cal_all_wind_file()
-    self.backtest()
+    # self.cal_all_wind_file()
+    # self.backtest()
     self.cal_weight_data()
 

@@ -97,9 +97,9 @@ class EmailSender(object):
         mail_server_pass = "Mfcteda2019!!"  # 服务器登陆密码
 
         self.message['Subject'] = Header(subject_header, 'utf-8')  # 写好 邮件标题
-        self.message['From'] = Header(sender_mail_name, 'utf-8')  # 写好 发送者
-        self.message['To'] = Header(';'.join(receivers_mail_name), 'utf-8')  # 写好 接收者
-        self.message['Cc'] = Header(';'.join(acc_mail_name), 'utf-8')  # 写好 接收者
+        self.message['From'] = sender_mail_name  # 写好 发送者
+        self.message['To'] = ';'.join(receivers_mail_name)  # 写好 接收者
+        self.message['Cc'] = ';'.join(acc_mail_name)  # 写好 接收者
         msgText = MIMEText(self.imgHtml, 'html')
         self.message_alternative.attach(msgText)
 

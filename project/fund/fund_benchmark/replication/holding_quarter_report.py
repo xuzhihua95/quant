@@ -41,7 +41,7 @@ class HoldingQuarter(Data):
 
         """ 单个季度公募主动股票基金平均权重 每个基金的权都为1 """
 
-        fund_pool = FundPool().get_fund_pool_code(name="普通股票型基金", date=quarter_date)
+        fund_pool = FundPool().get_fund_pool_code(name="普通股票型基金", date="20181231")
 
         for i_fund in range(len(fund_pool)):
             fund = fund_pool[i_fund]
@@ -71,7 +71,7 @@ class HoldingQuarter(Data):
         for i_date in range(len(date_series)):
 
             quarter_date = date_series[i_date]
-            fund_pool = FundPool().get_fund_pool_code(name="普通股票型基金", date=quarter_date)
+            fund_pool = FundPool().get_fund_pool_code(name="普通股票型基金", date="20181231")
             stock_ratio = pd.DataFrame(self.stock_ratio.loc[fund_pool, quarter_date])
             ratio = stock_ratio.median().values[0] / 100.0
 
@@ -150,5 +150,5 @@ if __name__ == '__main__':
     self.get_data()
     self.cal_all_wind_file()
     self.backtest()
-    # self.cal_weight_data()
+    self.cal_weight_data()
 

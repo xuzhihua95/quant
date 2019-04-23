@@ -17,7 +17,7 @@ class RiskFactorMail(object):
 
         factor_name = "risk_raw_fund_etf_holder"
         today = datetime.today().strftime("%Y%m%d")
-        beg_date = Date().get_trade_date_offset(today, -12)
+        beg_date = Date().get_trade_date_offset(today, -30)
         RiskFactorFundETFHolder().update_data(beg_date, today)
         RiskFactorFundETFHolder().cal_factor_exposure(beg_date, today)
         RiskFactor().generate_patch_file(factor_name, beg_date, today)
@@ -31,7 +31,7 @@ class RiskFactorMail(object):
         email.attach_file(zip_file)
         sender_mail_name = "fucheng.dou@mfcteda.com"
         receivers_mail_name = ["fucheng.dou@mfcteda.com", "xin.liu@mfcteda.com"]
-        email.send_mail_mfcteda(sender_mail_name, receivers_mail_name, [], "Risk_Factor")
+        email.send_mail_mfcteda(sender_mail_name, receivers_mail_name, [], "周报_RiskFactor_ETFHolder")
         os.remove(zip_file)
 
 

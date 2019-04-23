@@ -392,7 +392,7 @@ class FundPool(Data):
 
 if __name__ == '__main__':
 
-    date = '20190331'
+    date = '20190431'
     self = FundPool()
 
     FundPool().load_fund_pool_all(date)

@@ -225,7 +225,7 @@ class FundHolder(Data):
         fund_list.sort()
 
         today = datetime.today()
-        date_quarter_series = Date().get_normal_date_series("19991231", today, "S")
+        date_quarter_series = Date().get_normal_date_series("19991231", today, "Q")
         print(date_quarter_series)
 
         for i_fund in range(len(fund_list)):

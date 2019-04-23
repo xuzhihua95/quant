@@ -13,7 +13,7 @@ class FundLassoStockPool(Data):
     def __init__(self):
 
         Data.__init__(self)
-        self.sub_data_path = r'4_fund_data\4_fund_holding_predict\lasso_stock_pool'
+        self.sub_data_path = r'fund_data\fund_holding_predict\lasso_stock_pool'
         self.data_path_lasso_pool = os.path.join(self.primary_data_path, self.sub_data_path)
 
         self.lasso_stock_pool_number = 20

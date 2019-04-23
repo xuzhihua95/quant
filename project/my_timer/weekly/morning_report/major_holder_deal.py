@@ -229,7 +229,7 @@ class MajorHolderDeal(Data):
 
 if __name__ == '__main__':
 
-    end_date = "20190404"
+    end_date = "20190419"
     self = MajorHolderDeal()
     self.update_data()
     self.generate_excel(end_date)
