@@ -3,8 +3,9 @@ import pandas as pd
 
 class PandasToTxt(object):
 
-    def __init__(self):
+    """ 将 pandas 数据格式输出为 txt格式 """
 
+    def __init__(self):
         pass
 
     def to_txt(self, data, file):

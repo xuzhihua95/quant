@@ -2,8 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from datetime import datetime
+
 from quant.data.data import Data
 from quant.stock.index import Index
 from quant.stock.stock import Stock
@@ -24,7 +24,8 @@ class TimingFactor(Data):
         self.sub_data_path = r"index_data\timing"
         self.data_path = os.path.join(self.primary_data_path, self.sub_data_path)
 
-    def cal_factor_from_stock(self, factor_name, path, index_code, tf_name):
+    @staticmethod
+    def cal_factor_from_stock(factor_name, path, index_code, tf_name):
 
         """ 利用股票的数据计算择时指标 """
 
@@ -57,9 +58,9 @@ class TimingFactor(Data):
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.plot(time_series, index_values, '-', label=index_name, linewidth=0.75)
+        ax.plot(time_series, index_values, '-', label=index_name, linewidth=0.70)
         ax2 = ax.twinx()
-        ax2.plot(time_series, factor_values, '-r', label=tf_name, linewidth=0.75)
+        ax2.plot(time_series, factor_values, '-r', label=tf_name, linewidth=0.70)
 
         ax.set_xlabel("Date")
         ax.set_ylabel(index_name)
@@ -177,6 +178,7 @@ class TimingFactor(Data):
             data_date = pd.DataFrame(data.loc[date, :])
             data_date.columns = [col_name]
         except Exception as e:
+            print(e)
             print("Can not Find Timing Factor %s Values At Date %s" % (factor_name, date))
             data_date = pd.DataFrame([], columns=[col_name], index=['RawTimer', 'Timer'])
 
